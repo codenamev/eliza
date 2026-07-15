@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.9.3-2.9.4/dist/browser.script.iife.js"></script>
   <style>
     :root {
@@ -212,6 +213,8 @@
     });
     const fitAddon = new FitAddon.FitAddon();
     term.loadAddon(fitAddon);
+    // URLs printed to the terminal (intro links, etc.) become clickable
+    term.loadAddon(new WebLinksAddon.WebLinksAddon());
 
     // Open the terminal once the CRT font is ready so xterm measures it
     // correctly; fall back to the stock monospace if the font never loads.
