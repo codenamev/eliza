@@ -165,7 +165,7 @@
   <div class="grid-floor"></div>
   <div class="deck">
     <div class="deck-header">
-      <span class="title">ELIZA/OS</span>
+      <span class="title">CODENAMEV/OS/ELIZA</span>
       <span class="sep">//</span>
       <span>Neural Therapy Terminal</span>
       <span class="sep session">//</span>
@@ -222,7 +222,7 @@
       term.focus();
 
       // Boot indicator while the Ruby WASM module (~10 MB compressed) downloads.
-      term.write('\x1b[38;5;244mJACKING IN');
+      term.write('\x1b[38;5;244mHACKING IN');
       window.bootTicker = setInterval(() => term.write('░'), 400);
     };
     document.fonts.load('20px VT323').catch(() => {}).finally(bootTerminal);
