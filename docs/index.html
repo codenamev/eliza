@@ -237,6 +237,36 @@
     window.skipIntro = false;
     const introListener = term.onData(() => { window.skipIntro = true; });
     window.endIntro = () => { introListener.dispose(); };
+
+    // Line discipline lives here in JavaScript so typed characters echo
+    // instantly; the Ruby VM is only entered once per submitted line.
+    let lineBuffer = '';
+    let lineHandler = null;
+    window.onLine = (handler) => { lineHandler = handler; };
+    term.onData((data) => {
+      if (!lineHandler) return; // intro still running
+      for (const ch of data) {
+        if (ch === '\r') {
+          term.write('\r\n');
+          const line = lineBuffer;
+          lineBuffer = '';
+          lineHandler(line);
+        } else if (ch === '\u007F' || ch === '\b') {
+          if (lineBuffer.length > 0) {
+            lineBuffer = lineBuffer.slice(0, -1);
+            term.write('\b \b');
+          }
+        } else if (ch === '\u0003') { // Ctrl-C clears the current line
+          term.write('^C\r\n');
+          lineBuffer = '';
+          lineHandler('');
+        } else if (ch >= ' ' && lineBuffer.length < 320) {
+          // a 1966 punched card held 80 columns; be generous, but not infinite
+          lineBuffer += ch;
+          term.write(ch);
+        }
+      }
+    });
   </script>
   <script type="text/ruby" data-eval="async">
 require "js"
@@ -253,7 +283,7 @@ def sleep_ms(ms)
   JS.global.sleep(ms).await
 end
 
-def typewrite(text, delay: 18)
+def typewrite(text, delay: 12)
   text.each_char do |char|
     TERM.write(char)
     sleep_ms(delay)
@@ -261,7 +291,7 @@ def typewrite(text, delay: 18)
   TERM.write("\r\n")
 end
 
-def neural_stream(count = 14)
+def neural_stream(count = 10)
   chars = ("⠀".."⣿").to_a
   count.times do
     TERM.write(chars.sample)
@@ -271,7 +301,7 @@ end
 
 def connect(message, result)
   TERM.write(message)
-  sleep_ms(250)
+  sleep_ms(150)
   neural_stream
   TERM.write(" #{result}\r\n")
   sleep_ms(150)
@@ -1298,46 +1328,25 @@ TERM.write("\r\n")
 JS.global.endIntro
 
 engine = Eliza::Engine.new(Eliza::Script.parse(Eliza::DOCTOR_SCRIPT))
-buffer = String.new
 
 say(engine.greeting)
 prompt
 
-TERM.onData do |data|
-  data.to_s.each_char do |char|
-    case char
-    when "\r"
-      TERM.write("\r\n")
-      input = buffer.strip
-      buffer = String.new
-      if input == "*cacm"
-        # replay the conversation from the 1966 CACM paper on a fresh engine
-        replay = Eliza::Engine.new(Eliza::Script.parse(Eliza::DOCTOR_SCRIPT))
-        Eliza::CACM_1966_CONVERSATION.each do |patient, _|
-          TERM.write("#{C_PROMPT}> #{C_RESET}#{C_DIM}#{patient}#{C_RESET}\r\n")
-          say(replay.response(patient))
-        end
-      elsif !input.empty?
-        say(engine.response(input))
-      end
-      prompt
-    when "\u007F", "\b"
-      unless buffer.empty?
-        buffer = buffer[0...-1]
-        TERM.write("\b \b")
-      end
-    when "\u0003" # Ctrl-C clears the current line
-      TERM.write("^C\r\n")
-      buffer = String.new
-      prompt
-    else
-      # a 1966 punched card held 80 columns; be generous, but not infinite
-      if char.ord >= 32 && buffer.length < 320
-        buffer = buffer + char
-        TERM.write(char)
-      end
+# Echo and line editing happen in JavaScript (see onLine in the page
+# script); Ruby only hears about complete lines, so typing stays snappy.
+JS.global.onLine do |line|
+  input = line.to_s.strip
+  if input == "*cacm"
+    # replay the conversation from the 1966 CACM paper on a fresh engine
+    replay = Eliza::Engine.new(Eliza::Script.parse(Eliza::DOCTOR_SCRIPT))
+    Eliza::CACM_1966_CONVERSATION.each do |patient, _|
+      TERM.write("#{C_PROMPT}> #{C_RESET}#{C_DIM}#{patient}#{C_RESET}\r\n")
+      say(replay.response(patient))
     end
+  elsif !input.empty?
+    say(engine.response(input))
   end
+  prompt
 end
   </script>
 </body>
