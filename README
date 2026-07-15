@@ -3,6 +3,10 @@ It is an exercise in learning Ruby and Git.  Cheers.
 
 100208 - Make that ruby and git and apache licenses.
 
+260715 - Eliza goes to the browser: docs/ holds a ruby.wasm + xterm.js build
+served by GitHub Pages at https://chat.codenamev.com. The single-file
+terminal version remains runnable locally with: ruby runno.rb
+
   Copyright 2010 Dave King
 
   Licensed under the Apache License, Version 2.0 (the "License");

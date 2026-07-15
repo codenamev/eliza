@@ -1,7 +1,106 @@
-# frozen_string_literal: true
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>chat.codenamev.com &mdash; ELIZA</title>
+  <meta name="description" content="ELIZA, one of the very first NLP programs, running as Ruby compiled to WebAssembly — entirely in your browser.">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.9.3-2.9.4/dist/browser.script.iife.js"></script>
+  <style>
+    html, body { height: 100%; margin: 0; background: #1E1E1D; }
+    #optic-nerve { position: fixed; inset: 0; padding: 8px; }
+  </style>
+</head>
+<body>
+  <div id="optic-nerve"></div>
+  <script>
+    const term = new Terminal({
+      cursorBlink: true,
+      fontFamily: '"Fira Code", Menlo, "DejaVu Sans Mono", courier-new, courier, monospace',
+      fontSize: 15,
+      theme: {
+        foreground: '#F8F8F8',
+        background: '#2D2E2C',
+        selectionBackground: '#5DA5D533',
+        selectionInactiveBackground: '#555555AA',
+        black: '#1E1E1D',
+        brightBlack: '#262625',
+        red: '#CE5C5C',
+        brightRed: '#FF7272',
+        green: '#5BCC5B',
+        brightGreen: '#72FF72',
+        yellow: '#CCCC5B',
+        brightYellow: '#FFFF72',
+        blue: '#5D5DD3',
+        brightBlue: '#7279FF',
+        magenta: '#BC5ED1',
+        brightMagenta: '#E572FF',
+        cyan: '#5DA5D5',
+        brightCyan: '#72F0FF',
+        white: '#F8F8F8',
+        brightWhite: '#FFFFFF'
+      }
+    });
+    const fitAddon = new FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(document.getElementById('optic-nerve'));
+    fitAddon.fit();
+    window.addEventListener('resize', () => fitAddon.fit());
+    term.focus();
 
-require "pp"
-require "stringio"
+    window.term = term;
+    window.sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    // Boot indicator while the Ruby WASM module (~10 MB compressed) downloads.
+    term.write('Summoning ruby.wasm');
+    window.bootTicker = setInterval(() => term.write('.'), 400);
+
+    // Any key pressed during the intro fast-forwards it.
+    window.skipIntro = false;
+    const introListener = term.onData(() => { window.skipIntro = true; });
+    window.endIntro = () => { introListener.dispose(); };
+  </script>
+  <script type="text/ruby" data-eval="async">
+require "js"
+
+TERM = JS.global[:term]
+
+def skip_intro?
+  JS.global[:skipIntro].to_s == "true"
+end
+
+# Await a JS timer so the browser stays responsive; no-op once the intro is skipped.
+def sleep_ms(ms)
+  return if skip_intro?
+  JS.global.sleep(ms).await
+end
+
+def typewrite(text, delay: 18)
+  text.each_char do |char|
+    TERM.write(char)
+    sleep_ms(delay)
+  end
+  TERM.write("\r\n")
+end
+
+def neural_stream(count = 14)
+  chars = ("⠀".."⣿").to_a
+  count.times do
+    TERM.write(chars.sample)
+    sleep_ms(30)
+  end
+end
+
+def connect(message, result)
+  TERM.write(message)
+  sleep_ms(250)
+  neural_stream
+  TERM.write(" #{result}\r\n")
+  sleep_ms(150)
+end
 
 # Key: @nodoc
 class Key < Array
@@ -208,33 +307,19 @@ class Script
   end
 end
 
-# Eliza: @nodoc
+# Eliza: @nodoc — browser edition. Input arrives one line at a time from the
+# terminal's onData handler, so there is no run loop and no IO streams.
 class Eliza
-  def initialize(script_content, input_stream, output_stream)
+  def initialize(script_content)
     @debug = false
-    @delay = 1 # delay in seconds before responding
     @done = false
     @memory = Memory.new
     @memory.save("Oh my gosh, I spilled coffee! Sorry, please continue.")
     @script = Script.new script_content
-    @in, @out = input_stream, output_stream
-    srand 1234
   end
 
-  def run
-    @out.puts ">> Hello."
-    @out.puts "Please state your problem."
-    @out.print ">> "
-    @in.each_line do |input|
-      wait_until = Time.now + @delay
-      #@out.print input.to_s if @in.is_a? File
-      reply = process_input(input)
-      sleep 1 while Time.now < wait_until
-      @out.puts reply
-      break if @done
-
-      @out.print ">> "
-    end
+  def done?
+    @done
   end
 
   def process_input(input)
@@ -772,5 +857,74 @@ key: different 0
 	reasmb: How ?
 ELIZA_SCRIPT
 
-$stdout.sync = true
-Eliza.new(StringIO.new(script), $stdin, $stdout).run
+ELIZA_SOURCE = script
+
+JS.global.clearInterval(JS.global[:bootTicker])
+TERM.write("\r\n\r\n")
+
+connect("Connecting to ground control...", "connected.")
+connect("Tracing code name V location...", "location established.")
+connect("Establishing neural connection...", "connected.")
+TERM.write("\r\n")
+
+typewrite("I sense your presence and appreciate your patience.")
+typewrite("Welcome to a safe space in my neural cortex.")
+typewrite("Find me at https://github.com/codenamev or https://blog.codenamev.com")
+TERM.write("\r\n")
+typewrite("In my quest to explore the vast expanse of AI, I present to you")
+typewrite("one of the very first NLP programs: \"ELIZA\" (Joseph Weizenbaum, 1966)")
+typewrite("https://en.wikipedia.org/wiki/ELIZA")
+TERM.write("\r\n")
+typewrite("This session is the original Ruby program, compiled to WebAssembly,")
+typewrite("running entirely in your browser. Type 'bye' to end the session.")
+TERM.write("\r\n")
+typewrite("Now presenting, ELIZA...")
+TERM.write("\r\n")
+
+JS.global.endIntro
+
+eliza = Eliza.new(ELIZA_SOURCE)
+buffer = String.new
+ended = false
+
+TERM.write(">> Hello.\r\nPlease state your problem.\r\n>> ")
+
+TERM.onData do |data|
+  data.to_s.each_char do |char|
+    case char
+    when "\r"
+      TERM.write("\r\n")
+      if ended
+        eliza = Eliza.new(ELIZA_SOURCE)
+        ended = false
+        TERM.write(">> Hello again.\r\nPlease state your problem.\r\n>> ")
+      else
+        reply = eliza.process_input(buffer)
+        TERM.write(">> #{reply}\r\n")
+        if eliza.done?
+          ended = true
+          TERM.write("(press Enter to start a new session)\r\n")
+        else
+          TERM.write(">> ")
+        end
+      end
+      buffer = String.new
+    when "\u007F", "\b"
+      unless buffer.empty?
+        buffer = buffer[0...-1]
+        TERM.write("\b \b")
+      end
+    when "\u0003" # Ctrl-C clears the current line
+      TERM.write("^C\r\n>> ")
+      buffer = String.new
+    else
+      if char.ord >= 32
+        buffer = buffer + char
+        TERM.write(char)
+      end
+    end
+  end
+end
+  </script>
+</body>
+</html>
