@@ -3,60 +3,232 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>chat.codenamev.com &mdash; ELIZA</title>
-  <meta name="description" content="ELIZA, one of the very first NLP programs, running as Ruby compiled to WebAssembly — entirely in your browser.">
+  <title>chat.codenamev.com &mdash; ELIZA // NEURAL THERAPY TERMINAL</title>
+  <meta name="description" content="A faithful reconstruction of Weizenbaum's 1966 ELIZA — the original CACM algorithm and DOCTOR script — running as Ruby compiled to WebAssembly, entirely in your browser.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128065;</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Chakra+Petch:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.9.3-2.9.4/dist/browser.script.iife.js"></script>
   <style>
-    html, body { height: 100%; margin: 0; background: #1E1E1D; }
-    #optic-nerve { position: fixed; inset: 0; padding: 8px; }
+    :root {
+      --void: #030008;
+      --panel: #0A0118;
+      --neon-cyan: #05D9E8;
+      --neon-magenta: #FF2A6D;
+      --neon-violet: #7700A6;
+      --phosphor: #C8FEFF;
+      --grid-line: rgba(5, 217, 232, 0.22);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: var(--void);
+      overflow: hidden;
+    }
+
+    /* neon horizon behind everything */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 90% 45% at 50% 108%, rgba(255, 42, 109, 0.28), transparent 65%),
+        radial-gradient(ellipse 70% 35% at 50% 112%, rgba(119, 0, 166, 0.45), transparent 70%),
+        radial-gradient(ellipse 120% 60% at 50% -20%, rgba(5, 217, 232, 0.06), transparent 60%);
+      pointer-events: none;
+    }
+
+    /* synthwave grid floor, crawling toward the viewer */
+    .grid-floor {
+      position: fixed;
+      left: -50%;
+      right: -50%;
+      bottom: -12%;
+      height: 55%;
+      background:
+        repeating-linear-gradient(to right, var(--grid-line) 0 1px, transparent 1px 70px),
+        repeating-linear-gradient(to bottom, var(--grid-line) 0 1px, transparent 1px 45px);
+      transform: perspective(240px) rotateX(62deg);
+      animation: grid-crawl 2.4s linear infinite;
+      mask-image: linear-gradient(to top, black 55%, transparent);
+      -webkit-mask-image: linear-gradient(to top, black 55%, transparent);
+      pointer-events: none;
+    }
+    @keyframes grid-crawl {
+      to { background-position: 0 45px, 0 45px; }
+    }
+
+    .deck {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      width: min(1060px, calc(100% - 24px));
+      height: calc(100dvh - 24px);
+      margin: 12px auto;
+      border: 1px solid var(--neon-cyan);
+      border-radius: 10px;
+      background: var(--panel);
+      box-shadow:
+        0 0 18px rgba(5, 217, 232, 0.35),
+        0 0 60px rgba(255, 42, 109, 0.18),
+        inset 0 0 40px rgba(3, 0, 8, 0.8);
+      animation: crt-on 0.7s cubic-bezier(0.23, 1, 0.32, 1) both;
+    }
+    @keyframes crt-on {
+      0%   { transform: scaleY(0.004) scaleX(0.6); filter: brightness(6); }
+      55%  { transform: scaleY(1) scaleX(1); filter: brightness(2.4); }
+      100% { transform: none; filter: none; }
+    }
+
+    .deck-header, .deck-footer {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 14px;
+      font-family: "Chakra Petch", monospace;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 6px rgba(5, 217, 232, 0.8);
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .deck-header { border-bottom: 1px solid rgba(5, 217, 232, 0.35); }
+    .deck-footer {
+      border-top: 1px solid rgba(5, 217, 232, 0.35);
+      font-size: 11px;
+      color: rgba(200, 254, 255, 0.55);
+      text-shadow: none;
+      justify-content: space-between;
+    }
+    .deck-footer .hint b { color: var(--neon-magenta); font-weight: 600; }
+
+    .deck-header .title {
+      font-weight: 600;
+      color: var(--neon-magenta);
+      text-shadow: 0 0 8px rgba(255, 42, 109, 0.9);
+    }
+    .deck-header .sep { color: rgba(200, 254, 255, 0.35); }
+    .deck-header .led {
+      width: 8px; height: 8px;
+      margin-left: auto;
+      border-radius: 50%;
+      background: var(--neon-magenta);
+      box-shadow: 0 0 8px var(--neon-magenta);
+      animation: led-pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes led-pulse { 50% { opacity: 0.25; box-shadow: none; } }
+
+    #optic-nerve {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      padding: 10px 6px 10px 12px;
+    }
+    #optic-nerve .xterm { height: 100%; }
+
+    /* CRT scanlines + vignette over the glass */
+    .glass {
+      position: absolute;
+      inset: 0;
+      border-radius: 10px;
+      background:
+        repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px),
+        radial-gradient(ellipse at center, transparent 58%, rgba(3, 0, 8, 0.55) 100%);
+      mix-blend-mode: multiply;
+      animation: flicker 4s steps(60) infinite;
+      pointer-events: none;
+      z-index: 5;
+    }
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      31% { opacity: 0.92; }
+      32% { opacity: 1; }
+      67% { opacity: 0.95; }
+      68% { opacity: 1; }
+    }
+
+    @media (max-width: 640px) {
+      .deck-header .session, .deck-footer .build { display: none; }
+    }
   </style>
 </head>
 <body>
-  <div id="optic-nerve"></div>
+  <div class="grid-floor"></div>
+  <div class="deck">
+    <div class="deck-header">
+      <span class="title">ELIZA/OS</span>
+      <span class="sep">//</span>
+      <span>Neural Therapy Terminal</span>
+      <span class="sep session">//</span>
+      <span class="session">MAD-SLIP&#8594;RUBY.WASM</span>
+      <span class="led"></span>
+    </div>
+    <div id="optic-nerve"><div class="glass"></div></div>
+    <div class="deck-footer">
+      <span class="hint">type <b>*cacm</b> to replay the 1966 CACM session</span>
+      <span class="build">EST. 1966 &mdash; M.I.T. PROJECT MAC &mdash; chat.codenamev.com</span>
+    </div>
+  </div>
   <script>
     const term = new Terminal({
       cursorBlink: true,
-      fontFamily: '"Fira Code", Menlo, "DejaVu Sans Mono", courier-new, courier, monospace',
-      fontSize: 15,
+      cursorStyle: 'block',
+      fontFamily: '"VT323", "Fira Code", Menlo, "DejaVu Sans Mono", courier-new, courier, monospace',
+      fontSize: 20,
+      lineHeight: 1.05,
       theme: {
-        foreground: '#F8F8F8',
-        background: '#2D2E2C',
-        selectionBackground: '#5DA5D533',
-        selectionInactiveBackground: '#555555AA',
-        black: '#1E1E1D',
-        brightBlack: '#262625',
-        red: '#CE5C5C',
-        brightRed: '#FF7272',
-        green: '#5BCC5B',
-        brightGreen: '#72FF72',
-        yellow: '#CCCC5B',
-        brightYellow: '#FFFF72',
-        blue: '#5D5DD3',
-        brightBlue: '#7279FF',
-        magenta: '#BC5ED1',
-        brightMagenta: '#E572FF',
-        cyan: '#5DA5D5',
-        brightCyan: '#72F0FF',
-        white: '#F8F8F8',
+        foreground: '#C8FEFF',
+        background: '#0A0118',
+        cursor: '#FF2A6D',
+        cursorAccent: '#0A0118',
+        selectionBackground: '#FF2A6D55',
+        selectionInactiveBackground: '#7700A655',
+        black: '#0A0118',
+        brightBlack: '#37265B',
+        red: '#FF2A6D',
+        brightRed: '#FF5C8F',
+        green: '#39FF14',
+        brightGreen: '#8CFF6F',
+        yellow: '#F9F002',
+        brightYellow: '#FBF66A',
+        blue: '#7700A6',
+        brightBlue: '#A64DFF',
+        magenta: '#D91BFF',
+        brightMagenta: '#FF2A6D',
+        cyan: '#05D9E8',
+        brightCyan: '#66F2FC',
+        white: '#C8FEFF',
         brightWhite: '#FFFFFF'
       }
     });
     const fitAddon = new FitAddon.FitAddon();
     term.loadAddon(fitAddon);
-    term.open(document.getElementById('optic-nerve'));
-    fitAddon.fit();
-    window.addEventListener('resize', () => fitAddon.fit());
-    term.focus();
+
+    // Open the terminal once the CRT font is ready so xterm measures it
+    // correctly; fall back to the stock monospace if the font never loads.
+    const bootTerminal = () => {
+      term.open(document.getElementById('optic-nerve'));
+      fitAddon.fit();
+      window.addEventListener('resize', () => fitAddon.fit());
+      term.focus();
+
+      // Boot indicator while the Ruby WASM module (~10 MB compressed) downloads.
+      term.write('\x1b[38;5;244mJACKING IN');
+      window.bootTicker = setInterval(() => term.write('░'), 400);
+    };
+    document.fonts.load('20px VT323').catch(() => {}).finally(bootTerminal);
 
     window.term = term;
     window.sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-    // Boot indicator while the Ruby WASM module (~10 MB compressed) downloads.
-    term.write('Summoning ruby.wasm');
-    window.bootTicker = setInterval(() => term.write('.'), 400);
 
     // Any key pressed during the intro fast-forwards it.
     window.skipIntro = false;
@@ -102,823 +274,1062 @@ def connect(message, result)
   sleep_ms(150)
 end
 
-# Key: @nodoc
-class Key < Array
-  include Comparable
-  attr_reader :name, :rank, :index
+# --- BEGIN generated by bin/build_site.rb (edit lib/, not this) ---
 
-  def <=>(other)
-    comparison = rank <=> other.rank
-    comparison = other.index <=> index if comparison.zero?
-    comparison
+#
+# ELIZA -- a faithful Ruby reconstruction of Joseph Weizenbaum's 1966
+# ELIZA/DOCTOR program.
+#
+# The algorithm follows Weizenbaum's description in "ELIZA - A Computer
+# Program For the Study of Natural Language Communication Between Man And
+# Machine", Communications of the ACM, January 1966, including details
+# recovered from the original MAD-SLIP source code found in the Weizenbaum
+# archives at MIT (the keystack, the BUT delimiter, the LIMIT counter, the
+# SLIP HASH memory selection and the built-in no-match messages), as
+# documented by Anthony Hay's C++ reconstruction:
+# https://github.com/anthay/ELIZA (CC0). See also https://elizagen.org.
+#
+# The browser build embeds a copy of this library in docs/index.html;
+# regenerate it with: ruby bin/build_site.rb
+
+module Eliza
+  # "the procedure recognizes a comma or a period as a delimiter" [page 37].
+  # The MAD-SLIP source shows the word BUT is also treated as a delimiter.
+  DELIMITERS = [",", ".", "BUT"].freeze
+
+  # Weizenbaum's built-in responses, used when a script problem prevents a
+  # reply being generated. Selected by the LIMIT counter, which cycles 1..4.
+  NOMATCH_MESSAGES = ["PLEASE CONTINUE", "HMMM", "GO ON , PLEASE", "I SEE"].freeze
+
+  # IBM 7090/7094 six-bit BCD (Hollerith) character codes. ELIZA ran on a
+  # 7094; the MEMORY mechanism hashes words in this encoding.
+  HOLLERITH = {}.tap do |h|
+    "0123456789".each_char.with_index { |c, i| h[c] = i }
+    h["="] = 0o13
+    h["'"] = 0o14
+    h["+"] = 0o20
+    ("A".."I").each_with_index { |c, i| h[c] = 0o21 + i }
+    h["."] = 0o33
+    h[")"] = 0o34
+    h["-"] = 0o40
+    ("J".."R").each_with_index { |c, i| h[c] = 0o41 + i }
+    h["$"] = 0o53
+    h["*"] = 0o54
+    h[" "] = 0o60
+    h["/"] = 0o61
+    ("S".."Z").each_with_index { |c, i| h[c] = 0o62 + i }
+    h[","] = 0o73
+    h["("] = 0o74
+  end.freeze
+
+  module_function
+
+  # Uppercase the text and reduce it to the BCD character set, mapping
+  # punctuation ELIZA never saw (?, !, colons, dashes, fancy quotes) onto
+  # the delimiters it did, as the keypunch operator effectively had to.
+  def normalize(text)
+    mapped = +""
+    text.each_char do |ch|
+      case ch
+      when "’"                                    then mapped << "'"
+      when "‘", "`", '"', "“", "”", "«", "»", "‹", "›", "‚", "‛", "„", "‟" then mapped << " "
+      when "!", "?"                               then mapped << "."
+      when ":", ";", "–", "—"                     then mapped << ","
+      else mapped << ch
+      end
+    end
+    mapped.upcase.gsub(%r{[^A-Z0-9='+.)($*/,\- ]}, " ")
   end
 
-  def initialize(name = nil, rank = 0, index = 0)
-    super()
-    @name = name # name of key
-    @rank = rank # a precedence
-    @index = index # offset of key in original script
+  # Split normalized text into words; commas and periods are words too.
+  # e.g. "MEN ARE ALL ALIKE." -> ["MEN", "ARE", "ALL", "ALIKE", "."]
+  def split_user_input(text)
+    normalize(text).gsub(/([.,])/, ' \1 ').split
   end
 
-  def inspect
-    "*** Key#inspect: @name=#{@name}, @rank=#{@rank}, @index=#{@index} " + super
+  # The 36-bit BCD encoding of the last SLIP cell of a word: its last chunk
+  # of up to six characters, space padded. e.g. "INVENTED" -> "ED    "
+  def last_chunk_as_bcd(word)
+    chunk = word.empty? ? "" : word[((word.length - 1) / 6) * 6..]
+    chunk.ljust(6).each_char.reduce(0) { |acc, c| (acc << 6) | HOLLERITH.fetch(c, c.ord & 0x3F) }
   end
 
-  def to_s
-    "*** Key#to_s: @name=#{@name}, @rank=#{@rank}, @index=#{@index} " + super
-  end
-end
-
-# Memory: @nodoc
-class Memory < Array
-  def initialize
-    super
-    @max = 20
+  # The SLIP HASH function: the middle n bits of the square of the least
+  # significant 35 bits of d (von Neumann mid-square).
+  def slip_hash(d, n)
+    d &= 0x7FFFFFFFF
+    ((d * d) >> (35 - n / 2)) & ((1 << n) - 1)
   end
 
-  def get
-    shift
-  end
+  # Match words against a decomposition pattern [page 38 (a)].
+  # Pattern elements: 0 (any number of words, leftmost-shortest), a positive
+  # integer n (exactly n words), a literal word, [:any, words] for
+  # (* WORD ...) groups, or [:tag, names] for (/TAG ...) groups.
+  # Returns the matched constituents (one string per element) or nil.
+  def match(tags, pattern, words)
+    return words.empty? ? [] : nil if pattern.empty?
 
-  def save(string)
-    push string
-    shift if length > @max
-    nil
-  end
-end
+    element = pattern[0]
+    rest = pattern[1..]
+    case element
+    when 0
+      constituent = []
+      remaining = words
+      loop do
+        tail = match(tags, rest, remaining)
+        return [constituent.join(" ")] + tail if tail
+        return nil if remaining.empty?
 
-# Decomp: @nodoc
-class Decomp < Array
-  attr_accessor :pattern
-  attr_reader :memory
+        constituent << remaining[0]
+        remaining = remaining[1..]
+      end
+    when Integer
+      return nil if words.size < element
 
-  def initialize(pattern, memory = false)
-    super()
-    @pattern = pattern # a regular expression, see Script#initialize
-    @memory = memory # save my dialogs in memory?
-    @index = nil # locates current reassembly rule
-  end
-
-  def next_rule
-    raise "error: no reassembly rules for decomp" unless size
-
-    @index ||= rand size
-    if @memory
-      @index = rand size
+      tail = match(tags, rest, words[element..])
+      tail && [words[0, element].join(" ")] + tail
     else
-      @index += 1
-      @index = 0 unless @index.positive? && @index < size
-    end
-    String.new self[@index]
-  end
+      return nil if words.empty? || !first_word_fits?(element, words[0], tags)
 
-  def inspect
-    "*** Decomp#inspect: @pattern=#{@pattern}, @memory=#{@memory}, @index=#{@index} " + super
-  end
-
-  def to_s
-    "*** Decomp#to_s: @pattern=#{@pattern}, @memory=#{@memory}, @index=#{@index} " + super
-  end
-end
-
-# PrePost: @nodoc
-class PrePost
-  attr_reader :src, :dst
-
-  def initialize(src, dst)
-    @src = src
-    @dst = dst
-  end
-end
-
-# Script: @nodoc
-class Script
-  attr_reader :final, :keys, :quits
-
-  def initialize(input_script)
-    @final = ""
-    @initial = ""
-    @keys = {}
-    @post = {}
-    @pre = {}
-    @quits = []
-    @syns = {}
-
-    parse input_script
-
-    # Regular expressions are harder to setup but later results look prettier
-    # than stepping thru and comparing multiple arrays of words and '*'s.
-
-    synpat = /@(\w+)/ # synonym notation used in eliza scripts
-    @keys.each_value do |key|
-      key.each do |decomp| # Key is (also) array of Decomp's, maybe too sneaky...
-        while synpat.match(decomp.pattern)
-          expr = @syns[Regexp.last_match(1)] or raise "error: unknown synonym: '#{Regexp.last_match(1)}'."
-          decomp.pattern = Regexp.last_match.pre_match + "(#{expr})" + Regexp.last_match.post_match
-        end
-        #puts "final pattern(#{decomp.pattern})"
-        decomp.pattern = /#{decomp.pattern}/i
-      end
+      tail = match(tags, rest, words[1..])
+      tail && [words[0]] + tail
     end
   end
 
-  def pre_translate(str)
-    translate(@pre, str)
+  def first_word_fits?(element, word, tags)
+    case element
+    in [:any, group] then group.include?(word)
+    in [:tag, names] then names.any? { |name| tags.fetch(name, []).include?(word) }
+    else element == word
+    end
   end
 
-  def post_translate(str)
-    translate(@post, str)
-  end
-
-  private
-
-  def parse(input_script)
-    key, decomp = nil
-
-    input_script.each_line.with_index do |line, line_number|
-      case line
-      when /^\s*#/
-        # no-op
-      when /^\s*final:(.*)/
-        @final = Regexp.last_match(1).strip
-      when /^\s*initial:(.*)/
-        @initial = Regexp.last_match(1).strip
-      when /^\s*quit:(.*)/
-        @quits.push Regexp.last_match(1).strip
-      when /^\s*pre:\s*(\S+)(.*)/
-        src, dst = Regexp.last_match(1).downcase, Regexp.last_match(2).strip
-        @pre[src] = PrePost.new(src, dst)
-      when /^\s*post:\s*(\S+)(.*)/
-        src, dst = Regexp.last_match(1).downcase, Regexp.last_match(2).strip
-        @post[src] = PrePost.new(src, dst)
-      when /^\s*synon:(.*)/
-        names = Regexp.last_match(1).downcase.split.sort
-        pattern = names.join("|")
-        names.each { |name| @syns[name] = pattern }
-      when /^\s*key:(.*)/
-        name, rank = Regexp.last_match(1).downcase.split
-        key = @keys[name] = Key.new(name, rank.to_i, @keys.size - 1)
-        decomp = nil
-      when /^\s*decomp:\s*(.*)/
-        key or raise "(#{line_number}): Error: no key for decomp."
-        pattern = Regexp.last_match(1).downcase.gsub("**", "*").gsub("*", " * ").strip.squeeze(" ")
-        #puts "=== before: #{pattern} ==="
-        words = pattern.split
-        if words[0] == "$"
-          mem = true
-          words.shift
-        else
-          mem = false
-        end
-        raise "(#{line_number}): error: empty decomp!" if words.size.zero?
-
-        pattern = ""
-        words.each_index do |i|
-          if words[i] == "*"
-            if i == words.size - 1  # '*' at end of sentence (greedy)
-              pattern += "(.*)"
-            elsif i.positive? # '*' between words
-              pattern += '((?:\s(?:\S+\s)*?)+?)'
-            else # '*' at beginning
-              pattern += '(\S+ )*?'
-            end
-          else # words[i] != '*'
-            pattern += words[i]
-            pattern += " " if i < words.size - 1 && words[i + 1] != "*"
-          end
-        end
-        #puts "=== after: #{pattern} ==="
-        key.push(decomp = Decomp.new(pattern, mem))
-      when /^\s*reasmb:(.*)/
-        decomp or raise "(#{line_number}): Error: no decomp for reasmb!"
-        decomp.push Regexp.last_match(1).strip
+  # Assemble a reply from reassembly-rule parts: integers index the matched
+  # constituents (1-based), everything else is literal text [page 38 (b)].
+  def reassemble(parts, constituents)
+    parts.flat_map do |part|
+      if part.is_a?(Integer)
+        part.between?(1, constituents.size) ? constituents[part - 1].split(" ") : ["HMMM"]
       else
-        $stderr << "Unrecognized script input, line #{line_number}: #{line}\n"
+        [part]
       end
     end
   end
 
-  def translate(map, str)
-    (words = str.split).each_index do |i|
-      pre_post = map[words[i].downcase]
-      words[i] = pre_post.dst if pre_post
-    end
-    words.join " "
-  end
-end
+  # -- script reading (the script is MAD-SLIP list structures) --------------
 
-# Eliza: @nodoc — browser edition. Input arrives one line at a time from the
-# terminal's onData handler, so there is no run loop and no IO streams.
-class Eliza
-  def initialize(script_content)
-    @debug = false
-    @done = false
-    @memory = Memory.new
-    @memory.save("Oh my gosh, I spilled coffee! Sorry, please continue.")
-    @script = Script.new script_content
-  end
-
-  def done?
-    @done
-  end
-
-  def process_input(input)
-    # Clean up input string, split into sentences.
-    #str = input.tr(',?!', '.').gsub(/[^.'\w]/, ' ').strip.squeeze("\s.")
-    str = input.tr(",?!", ".").strip.squeeze("\s.")
-    sentences = str.split(/\.\s*/)
-
-    # Try each sentence in string.
-    sentences.each { |s| (reply = sentence(s)) and return reply }
-
-    # No sentence(), pop next FIFO memory, if any.
-    (reply = @memory.get) and return reply
-    # No memory, try processing with xnone key.
-    results = {}
-    if (key = @script.keys["xnone"])
-      sentences.each { |s| decompose(s, key, results) and results["reply"] and return results["reply"] }
-    end
-
-    # Oh well, just say anything.
-    "I am at a loss for words."
-  end
-
-  def sentence(s)
-    puts %(*** processing sentence "#{s}" ...) if @debug
-
-    results = {} # for results of decomp and assemble
-
-    # Pre-replace any matching source terms with their destination.
-    input_sentence = @script.pre_translate(s)
-
-    # Check special case = end of therapy session.
-    if @script.quits.include? input_sentence
-      @done = true
-      return @script.final
-    end
-
-    # Patient isn't done, collect all keywords.
-    keys = {} # Start as hash,
-    input_sentence.split.each do |word|
-      keys[word] = @script.keys[word] if @script.keys[word]
-    end
-    keys = keys.each_value.sort.reverse # end as array, decreasing precedence
-
-    # Try each key for a reply or goto rule.
-    keys.each do |key|
-      next unless decompose(input_sentence, key, results)
-      return results["reply"] if results["reply"]
-      # Avoid infinite loops, allow one goto.
-      next unless decompose(input_sentence, results["goto_key"], results)
-      return results["reply"] if results["reply"]
-    end
-
-    # Sorry Charlie, no match found!
-    nil
-  end
-
-  def decompose(input, key, results)
-    puts %(*** decompose "#{input}" on key "#{key.name}") if @debug
-    key.each do |decomp|
-      md = decomp.pattern.match(input)
-      return true if md && assemble(md, decomp, results)
-    end
-    false
-  end
-
-  def assemble(md_input, decomp, results)
-    if @debug
-      captures = %("#{md_input.captures.join('", "')}")
-      puts %(*** assemble "#{decomp.pattern.inspect}" with (#{captures}))
-    end
-    rule = decomp.next_rule
-    if rule =~ /^goto\s+(\w+)/
-      raise "error: unknown key '#{Regexp.last_match(1)}'" unless @script.keys[Regexp.last_match(1)]
-
-      return (results["goto_key"] = @script.keys[Regexp.last_match(1)])
-    end
-    while md_rule = /(\((\d)\))/.match(rule) # e.g., (2) => md_input[2]
-      i, arg = Regexp.last_match(2).to_i, "[#{i}]"
-      if i.positive? && i < md_input.length
-        arg = @script.post_translate(md_input[i])
-        rule = md_rule.pre_match + arg + md_rule.post_match
+  # ';' starts a comment; '(' and ')' delimit lists; atoms are whitespace
+  # delimited. Returns the top-level expressions as nested arrays of strings.
+  def read_expressions(text)
+    expressions = []
+    stack = [expressions]
+    text.each_line do |line|
+      line.sub(/;.*/, "").scan(/[()]|[^\s()]+/) do |token|
+        case token
+        when "(" then stack.push(stack.last.push([]).last)
+        when ")" then stack.pop
+        else stack.last.push(token)
+        end
       end
     end
-    rule.sub!(/\s*(\W)\Z/) { |match| match = Regexp.last_match(1) }
-    @memory.save(rule) if decomp.memory
-    results["reply"] = rule
+    expressions
   end
 end
 
-script = <<~ELIZA_SCRIPT
-#
-# This Eliza script is taken from Charles Haydon's java implementation of
-# Eliza at http://www.chayden.net/eliza/Eliza.html. It appears to have
-# "mistakes" but is still much fun.
-#
-initial: How do you do.  Please tell me your problem.
-final: Goodbye.  It was nice talking to you.
-quit: bye
-quit: goodbye
-quit: done
-quit: exit
-quit: quit
-pre: dont don't
-pre: cant can't
-pre: wont won't
-pre: recollect remember
-pre: recall remember
-pre: dreamt dreamed
-pre: dreams dream
-pre: maybe perhaps
-pre: certainly yes
-pre: machine computer
-pre: machines computer
-pre: computers computer
-post: am are
-post: your my
-pre: were was
-post: me you
-pre: you're you are
-pre: i'm i am
-post: myself yourself
-post: yourself myself
-post: i you
-post: you I
-post: my your
-post: i'm you are
-pre: same alike
-pre: identical alike
-pre: equivalent alike
-synon: belief feel think believe wish
-synon: family mother mom father dad sister brother wife children child
-synon: desire want need
-synon: sad unhappy depressed sick
-synon: happy elated glad better
-synon: cannot can't
-synon: everyone everybody nobody noone
-synon: be am is are was
-key: xnone 0
-  decomp: *
-    reasmb: I'm not sure I understand you fully.
-    reasmb: Please go on.
-    reasmb: What does that suggest to you ?
-    reasmb: Do you feel strongly about discussing such things ?
-	reasmb: That is interesting.  Please continue.
-	reasmb: Tell me more about that.
-	reasmb: Does talking about this bother you ?
-key: sorry 0
-  decomp: *
-    reasmb: Please don't apologise.
-    reasmb: Apologies are not necessary.
-    reasmb: I've told you that apologies are not required.
-	reasmb: It did not bother me.  Please continue.
-key: apologise 0
-  decomp: *
-    reasmb: goto sorry
-key: apologize 0
-  decomp: *
-    reasmb: goto sorry
-key: remember 5
-  decomp: * i remember *
-    reasmb: Do you often think of (2) ?
-    reasmb: Does thinking of (2) bring anything else to mind ?
-    reasmb: What else do you recollect ?
-    reasmb: Why do you remember (2) just now ?
-    reasmb: What in the present situation reminds you of (2) ?
-    reasmb: What is the connection between me and (2) ?
-	reasmb: What else does (2) remind you of ?
-  decomp: * do you remember *
-    reasmb: Did you think I would forget (2) ?
-    reasmb: Why do you think I should recall (2) now ?
-    reasmb: What about (2) ?
-    reasmb: goto what
-    reasmb: You mentioned (2) ?
-   decomp: * you remember *
-	reasmb: How could I forget (2) ?
-	reasmb: What about (2) should I remember ?
-	reasmb: goto you
-key: forget 5
-   decomp: * i forget *
-	reasmb: Can you think of why you might forget (2) ?
-	reasmb: Why can't you remember (2) ?
-	reasmb: How often do you think of (2) ?
-	reasmb: Does it bother you to forget that ?
-	reasmb: Could it be a mental block ?
-	reasmb: Are you generally forgetful ?
-	reasmb: Do you think you are suppressing (2) ?
-   decomp: * did you forget *
-	reasmb: Why do you ask ?
-	reasmb: Are you sure you told me ?
-	reasmb: Would it bother you if I forgot (2) ?
-	reasmb: Why should I recall (2) just now ?
-	reasmb: goto what
-	reasmb: Tell me more about (2).
-key: if 3
-  decomp: * if *
-    reasmb: Do you think its likely that (2) ?
-    reasmb: Do you wish that (2) ?
-    reasmb: What do you know about (2) ?
-    reasmb: Really, if (2) ?
-	reasmb: What would you do if (2) ?
-	reasmb: But what are the chances that (2) ?
-	reasmb: What does this speculation lead to ?
-key: dreamed 4
-  decomp: * i dreamed *
-    reasmb: Really, (2) ?
-    reasmb: Have you ever fantasized (2) while you were awake ?
-    reasmb: Have you ever dreamed (2) before ?
-    reasmb: goto dream
-key: dream 3
-  decomp: *
-    reasmb: What does that dream suggest to you ?
-    reasmb: Do you dream often ?
-    reasmb: What persons appear in your dreams ?
-    reasmb: Do you believe that dreams have something to do with your problem ?
-key: perhaps 0
-  decomp: *
-    reasmb: You don't seem quite certain.
-    reasmb: Why the uncertain tone ?
-    reasmb: Can't you be more positive ?
-    reasmb: You aren't sure ?
-    reasmb: Don't you know ?
-	reasmb: How likely, would you estimate ?
-key: name 15
-  decomp: *
-    reasmb: I am not interested in names.
-    reasmb: I've told you before, I don't care about names -- please continue.
-key: deutsch 0
-  decomp: *
-    reasmb: goto xforeign
-    reasmb: I told you before, I don't understand German.
-key: francais 0
-  decomp: *
-    reasmb: goto xforeign
-    reasmb: I told you before, I don't understand French.
-key: italiano 0
-  decomp: *
-    reasmb: goto xforeign
-    reasmb: I told you before, I don't understand Italian.
-key: espanol 0
-  decomp: *
-    reasmb: goto xforeign
-    reasmb: I told you before, I don't understand Spanish.
-key: xforeign 0
-  decomp: *
-    reasmb: I speak only English.
-key: hello 0
-  decomp: *
-    reasmb: How do you do.  Please state your problem.
-    reasmb: Hi.  What seems to be your problem ?
-key: computer 50
-  decomp: *
-    reasmb: Do computers worry you ?
-    reasmb: Why do you mention computers ?
-    reasmb: What do you think machines have to do with your problem ?
-    reasmb: Don't you think computers can help people ?
-    reasmb: What about machines worries you ?
-    reasmb: What do you think about machines ?
-	reasmb: You don't think I am a computer program, do you ?
-key: am 1
-  decomp: * am i *
-    reasmb: Do you believe you are (2) ?
-    reasmb: Would you want to be (2) ?
-    reasmb: Do you wish I would tell you you are (2) ?
-    reasmb: What would it mean if you were (2) ?
-    reasmb: goto what
-  decomp: * i am *
-	reasmb: goto i
-  decomp: *
-    reasmb: Why do you say 'am' ?
-    reasmb: I don't understand that.
-key: are 1
-  decomp: * are you *
-    reasmb: Why are you interested in whether I am (2) or not ?
-    reasmb: Would you prefer if I weren't (2) ?
-    reasmb: Perhaps I am (2) in your fantasies.
-    reasmb: Do you sometimes think I am (2) ?
-    reasmb: goto what
-    reasmb: Would it matter to you ?
-    reasmb: What if I were (2) ?
-  decomp: * you are *
-    reasmb: goto you
-  decomp: * are *
-    reasmb: Did you think they might not be (2) ?
-    reasmb: Would you like it if they were not (2) ?
-    reasmb: What if they were not (2) ?
-    reasmb: Are they always (2) ?
-    reasmb: Possibly they are (2).
-    reasmb: Are you positive they are (2) ?
-key: your 0
-  decomp: * your *
-    reasmb: Why are you concerned over my (2) ?
-    reasmb: What about your own (2) ?
-    reasmb: Are you worried about someone else's (2) ?
-    reasmb: Really, my (2) ?
-    reasmb: What makes you think of my (2) ?
-    reasmb: Do you want my (2) ?
-key: was 2
-  decomp: * was i *
-    reasmb: What if you were (2) ?
-    reasmb: Do you think you were (2) ?
-    reasmb: Were you (2) ?
-    reasmb: What would it mean if you were (2) ?
-    reasmb: What does ' (2) ' suggest to you ?
-    reasmb: goto what
-  decomp: * i was *
-    reasmb: Were you really ?
-    reasmb: Why do you tell me you were (2) now ?
-    reasmb: Perhaps I already know you were (2).
-  decomp: * was you *
-    reasmb: Would you like to believe I was (2) ?
-    reasmb: What suggests that I was (2) ?
-    reasmb: What do you think ?
-    reasmb: Perhaps I was (2).
-    reasmb: What if I had been (2) ?
-key: i 0
-  decomp: * i @desire *
-    reasmb: What would it mean to you if you got (3) ?
-    reasmb: Why do you want (3) ?
-    reasmb: Suppose you got (3) soon.
-    reasmb: What if you never got (3) ?
-    reasmb: What would getting (3) mean to you ?
-    reasmb: What does wanting (3) have to do with this discussion ?
-  decomp: * i am* @sad *
-    reasmb: I am sorry to hear that you are (3).
-    reasmb: Do you think coming here will help you not to be (3) ?
-    reasmb: I'm sure it's not pleasant to be (3).
-    reasmb: Can you explain what made you (3) ?
-  decomp: * i am* @happy *
-    reasmb: How have I helped you to be (3) ?
-    reasmb: Has your treatment made you (3) ?
-    reasmb: What makes you (3) just now ?
-    reasmb: Can you explain why you are suddenly (3) ?
-  decomp: * i was *
-    reasmb: goto was
-  decomp: * i @belief i *
-    reasmb: Do you really think so ?
-    reasmb: But you are not sure you (3).
-    reasmb: Do you really doubt you (3) ?
-  decomp: * i* @belief *you *
-    reasmb: goto you
-  decomp: * i am *
-    reasmb: Is it because you are (2) that you came to me ?
-    reasmb: How long have you been (2) ?
-    reasmb: Do you believe it is normal to be (2) ?
-    reasmb: Do you enjoy being (2) ?
-	reasmb: Do you know anyone else who is (2) ?
-  decomp: * i @cannot *
-    reasmb: How do you know that you can't (3) ?
-    reasmb: Have you tried ?
-    reasmb: Perhaps you could (3) now.
-    reasmb: Do you really want to be able to (3) ?
-	reasmb: What if you could (3) ?
-  decomp: * i don't *
-    reasmb: Don't you really (2) ?
-    reasmb: Why don't you (2) ?
-    reasmb: Do you wish to be able to (2) ?
-    reasmb: Does that trouble you ?
-  decomp: * i feel *
-    reasmb: Tell me more about such feelings.
-    reasmb: Do you often feel (2) ?
-    reasmb: Do you enjoy feeling (2) ?
-    reasmb: Of what does feeling (2) remind you ?
-  decomp: * i * you *
-    reasmb: Perhaps in your fantasies we (2) each other.
-    reasmb: Do you wish to (2) me ?
-    reasmb: You seem to need to (2) me.
-    reasmb: Do you (2) anyone else ?
-  decomp: *
-    reasmb: You say (1) ?
-    reasmb: Can you elaborate on that ?
-    reasmb: Do you say (1) for some special reason ?
-    reasmb: That's quite interesting.
-key: you 0
-  decomp: * you remind me of *
-    reasmb: goto alike
-  decomp: * you are *
-    reasmb: What makes you think I am (2) ?
-    reasmb: Does it please you to believe I am (2) ?
-    reasmb: Do you sometimes wish you were (2) ?
-    reasmb: Perhaps you would like to be (2).
-  decomp: * you* me *
-    reasmb: Why do you think I (2) you ?
-    reasmb: You like to think I (2) you -- don't you ?
-    reasmb: What makes you think I (2) you ?
-    reasmb: Really, I (2) you ?
-    reasmb: Do you wish to believe I (2) you ?
-    reasmb: Suppose I did (2) you -- what would that mean ?
-    reasmb: Does someone else believe I (2) you ?
-  decomp: * you *
-    reasmb: We were discussing you -- not me.
-    reasmb: Oh, I (2) ?
-    reasmb: You're not really talking about me -- are you ?
-    reasmb: What are your feelings now ?
-key: yes 0
-  decomp: *
-    reasmb: You seem to be quite positive.
-    reasmb: You are sure.
-    reasmb: I see.
-    reasmb: I understand.
-key: no 0
-   decomp: * no one *
-	reasmb: Are you sure, no one (2) ?
-	reasmb: Surely someone (2) .
-	reasmb: Can you think of anyone at all ?
-	reasmb: Are you thinking of a very special person ?
-	reasmb: Who, may I ask ?
-	reasmb: You have a particular person in mind, don't you ?
-	reasmb: Who do you think you are talking about ?
-  decomp: *
-    reasmb: Are you saying no just to be negative?
-    reasmb: You are being a bit negative.
-    reasmb: Why not ?
-    reasmb: Why 'no' ?
-key: my 2
-  decomp: * my* @family *
-    reasmb: Tell me more about your (3).
-    reasmb: Who else in your family (4) ?
-    reasmb: Your (3) ?
-    reasmb: What else comes to mind when you think of your (3) ?
-  decomp: $ * my *
-    reasmb: Lets discuss further why your (2).
-    reasmb: Earlier you said your (2).
-    reasmb: But your (2).
-    reasmb: Does that have anything to do with the fact that your (2) ?
-  decomp: * my *
-    reasmb: Your (2) ?
-    reasmb: Why do you say your (2) ?
-    reasmb: Does that suggest anything else which belongs to you ?
-    reasmb: Is it important to you that your (2) ?
-key: can 0
-  decomp: * can you *
-    reasmb: You believe I can (2) don't you ?
-    reasmb: goto what
-    reasmb: You want me to be able to (2).
-    reasmb: Perhaps you would like to be able to (2) yourself.
-  decomp: * can i *
-    reasmb: Whether or not you can (2) depends on you more than on me.
-    reasmb: Do you want to be able to (2) ?
-    reasmb: Perhaps you don't want to (2).
-    reasmb: goto what
-key: what 0
-  decomp: *
-    reasmb: Why do you ask ?
-    reasmb: Does that question interest you ?
-    reasmb: What is it you really want to know ?
-    reasmb: Are such questions much on your mind ?
-    reasmb: What answer would please you most ?
-    reasmb: What do you think ?
-    reasmb: What comes to mind when you ask that ?
-    reasmb: Have you asked such questions before ?
-    reasmb: Have you asked anyone else ?
-key: who 0
-  decomp: * who are you *
-    reasmb: I am Eliza.  Learn more about me here: https://corecursive.com/eliza-with-jeff-shrager.
-  decomp: who *
-    reasmb: goto what
-key: when 0
-   decomp:  when *
-	reasmb: goto what
-key: where 0
-   decomp:  where *
-	reasmb: goto what
-key: how 0
-   decomp:  how *
-	reasmb: goto what
-key: because 0
-  decomp: *
-    reasmb: Is that the real reason ?
-    reasmb: Don't any other reasons come to mind ?
-    reasmb: Does that reason seem to explain anything else ?
-    reasmb: What other reasons might there be ?
-key: why 0
-  decomp: * why don't you *
-    reasmb: Do you believe I don't (2) ?
-    reasmb: Perhaps I will (2) in good time.
-    reasmb: Should you (2) yourself ?
-    reasmb: You want me to (2) ?
-    reasmb: goto what
-  decomp: * why can't i *
-    reasmb: Do you think you should be able to (2) ?
-    reasmb: Do you want to be able to (2) ?
-    reasmb: Do you believe this will help you to (2) ?
-    reasmb: Have you any idea why you can't (2) ?
-    reasmb: goto what
-  decomp: *
-    reasmb: goto what
-key: everyone 2
-  decomp: * @everyone *
-    reasmb: Really, (2) ?
-    reasmb: Surely not (2).
-    reasmb: Can you think of anyone in particular ?
-    reasmb: Who, for example?
-    reasmb: Are you thinking of a very special person ?
-    reasmb: Who, may I ask ?
-    reasmb: Someone special perhaps ?
-    reasmb: You have a particular person in mind, don't you ?
-    reasmb: Who do you think you're talking about ?
-key: everybody 2
-  decomp: *
-    reasmb: goto everyone
-key: nobody 2
-  decomp: *
-    reasmb: goto everyone
-key: noone 2
-  decomp: *
-    reasmb: goto everyone
-key: always 1
-  decomp: *
-    reasmb: Can you think of a specific example ?
-    reasmb: When ?
-    reasmb: What incident are you thinking of ?
-    reasmb: Really, always ?
-key: alike 10
-  decomp: *
-    reasmb: In what way ?
-    reasmb: What resemblence do you see ?
-    reasmb: What does that similarity suggest to you ?
-    reasmb: What other connections do you see ?
-    reasmb: What do you suppose that resemblence means ?
-    reasmb: What is the connection, do you suppose ?
-    reasmb: Could there really be some connection ?
-    reasmb: How ?
-key: like 10
-  decomp: * @be *like *
-    reasmb: goto alike
-key: different 0
-   decomp: *
-	reasmb: How is it different ?
-	reasmb: What differences do you see ?
-	reasmb: What does that difference suggest to you ?
-	reasmb: What other distinctions do you see ?
-	reasmb: What do you suppose that disparity means ?
-	reasmb: Could there be some connection, do you suppose ?
-	reasmb: How ?
-ELIZA_SCRIPT
+module Eliza
+  # One decomposition pattern with its reassembly rules. Reassembly rules
+  # are cycled through in order, one per use, "so that a repertoire of 4
+  # such rules is exhausted before any repetition occurs" [page 41].
+  class Transformation
+    attr_reader :decomposition, :reassemblies
 
-ELIZA_SOURCE = script
+    def initialize(decomposition, reassemblies)
+      @decomposition = decomposition
+      @reassemblies = reassemblies
+      @next_reassembly = 0
+    end
+
+    def next_reassembly
+      rule = @reassemblies[@next_reassembly]
+      @next_reassembly = (@next_reassembly + 1) % @reassemblies.size
+      rule
+    end
+
+    def self.decomposition_pattern(list)
+      list.map do |element|
+        if element.is_a?(Array)
+          first = element[0].to_s
+          rest = element.drop(1)
+          names = ([first[1..]] + rest).reject { |w| w.nil? || w.empty? }
+          first.start_with?("*") ? [:any, names] : [:tag, names]
+        elsif element.match?(/\A\d+\z/)
+          element.to_i
+        else
+          element
+        end
+      end
+    end
+
+    def self.text_parts(list)
+      list.map { |part| part.match?(/\A\d+\z/) ? part.to_i : part }
+    end
+
+    def self.parse(list)
+      decomposition = decomposition_pattern(list[0])
+      reassemblies = list.drop(1).map do |rule|
+        if rule == ["NEWKEY"]
+          [:newkey]
+        elsif (target = KeywordRule.reference_target(rule))
+          [:link, target]
+        elsif rule[0] == "PRE"
+          [:pre, text_parts(rule[1]), KeywordRule.reference_target(rule[2])]
+        else
+          [:text, text_parts(rule)]
+        end
+      end
+      new(decomposition, reassemblies)
+    end
+  end
+end
+
+module Eliza
+  # A keyword and its transformation rules, e.g.
+  #   (MY = YOUR 2
+  #       ((0 YOUR 0 (/FAMILY) 0)
+  #           (TELL ME MORE ABOUT YOUR FAMILY) ...) ...)
+  class KeywordRule
+    attr_reader :keyword, :substitution, :precedence, :dlist_tags, :link
+
+    def initialize(keyword, substitution: nil, precedence: 0, dlist_tags: [],
+                   link: nil, transformations: [])
+      @keyword = keyword
+      @substitution = substitution
+      @precedence = precedence
+      @dlist_tags = dlist_tags
+      @link = link
+      @transformations = transformations
+    end
+
+    # (=KEY) and (= KEY) both reference the rule for KEY
+    def self.reference_target(list)
+      return nil unless list.is_a?(Array) && list[0].is_a?(String)
+      return list[1] if list[0] == "=" && list.size == 2
+      return list[0][1..] if list.size == 1 && list[0].start_with?("=")
+
+      nil
+    end
+
+    def self.parse(expression)
+      items = expression.dup
+      keyword = items.shift
+      options = { transformations: [] }
+      until items.empty?
+        item = items.shift
+        if item == "="
+          options[:substitution] = items.shift
+        elsif item == "DLIST"
+          options[:dlist_tags] = items.shift.flat_map { |t| t == "/" ? [] : [t.delete_prefix("/")] }
+        elsif item.is_a?(String) && item.match?(/\A\d+\z/)
+          options[:precedence] = item.to_i
+        elsif (target = reference_target(item))
+          options[:link] = target
+        else
+          options[:transformations].push(Transformation.parse(item))
+        end
+      end
+      new(keyword, **options)
+    end
+
+    # only keywords with transformations (or a reference) join the keystack
+    def transformation?
+      !@transformations.empty? || !@link.nil?
+    end
+
+    # Apply this rule to words (in place for :complete and :pre).
+    # Returns [:complete], [:link, keyword], [:newkey] or [:inapplicable].
+    def apply(words, tags)
+      transformation, constituents = decompose(words, tags)
+      unless transformation
+        return @link ? [:link, @link] : [:inapplicable]
+      end
+
+      kind, *payload = transformation.next_reassembly
+      case kind
+      when :newkey
+        [:newkey]
+      when :link
+        [:link, payload[0]]
+      when :pre # (PRE (reassembly) (=KEY)): transform, then go to KEY
+        words.replace(Eliza.reassemble(payload[0], constituents))
+        [:link, payload[1]]
+      else # :text
+        words.replace(Eliza.reassemble(payload[0], constituents))
+        [:complete]
+      end
+    end
+
+    private
+
+    # first decomposition rule matching words, with its matched constituents
+    def decompose(words, tags)
+      @transformations.each do |transformation|
+        constituents = Eliza.match(tags, transformation.decomposition, words)
+        return [transformation, constituents] if constituents
+      end
+      [nil, nil]
+    end
+  end
+end
+
+module Eliza
+  # The one MEMORY rule, e.g. (MEMORY MY (0 YOUR 0 = LETS DISCUSS FURTHER
+  # WHY YOUR 3) ...). When its keyword tops the keystack a memory is formed
+  # using the rule selected by the SLIP HASH of the last word of the input
+  # [the MAD-SLIP source; the paper says "selected at random", page 41 (f)].
+  class MemoryRule
+    def initialize(keyword, transformations)
+      @keyword = keyword
+      @transformations = transformations
+      @memories = []
+    end
+
+    def self.parse(expression)
+      keyword = expression[1]
+      transformations = expression.drop(2).map do |list|
+        separator = list.index("=")
+        Transformation.new(
+          Transformation.decomposition_pattern(list[0...separator]),
+          [[:text, Transformation.text_parts(list[separator + 1..])]]
+        )
+      end
+      new(keyword, transformations)
+    end
+
+    def create(keyword, words, tags)
+      return unless keyword == @keyword
+
+      transformation = @transformations[Eliza.slip_hash(Eliza.last_chunk_as_bcd(words.last), 2)]
+      constituents = Eliza.match(tags, transformation.decomposition, words)
+      return unless constituents
+
+      @memories.push(Eliza.reassemble(transformation.reassemblies[0][1], constituents).join(" "))
+    end
+
+    def memory?
+      !@memories.empty?
+    end
+
+    def recall
+      @memories.shift
+    end
+  end
+end
+
+module Eliza
+  # A parsed ELIZA script: greeting, keyword rules, the MEMORY rule, the
+  # NONE rule and the DLIST tag map (e.g. "FAMILY" -> [MOTHER, FATHER, ...]).
+  class Script
+    attr_reader :greeting, :rules, :memory_rule, :none_rule, :tags
+
+    def self.parse(text)
+      new(text)
+    end
+
+    def initialize(text)
+      @greeting = nil
+      @rules = {}
+      @memory_rule = nil
+      @none_rule = nil
+      Eliza.read_expressions(text).each { |expression| absorb(expression) }
+      @greeting ||= "HELLO"
+      @tags = collect_tags
+    end
+
+    private
+
+    def absorb(expression)
+      return unless expression.is_a?(Array) # skip bare atoms such as START
+      return if expression.empty?           # () marks the end of the script
+
+      if @greeting.nil? # the script begins with the greeting
+        @greeting = expression.join(" ")
+      elsif expression[0] == "MEMORY"
+        @memory_rule = MemoryRule.parse(expression)
+      else
+        rule = KeywordRule.parse(expression)
+        if rule.keyword == "NONE"
+          # NONE is reserved: typing the word NONE must not trigger it
+          @none_rule = rule
+        else
+          @rules[rule.keyword] = rule
+        end
+      end
+    end
+
+    # e.g. "FAMILY" -> ["MOTHER", "MOM", "DAD", "FATHER", ...]
+    def collect_tags
+      @rules.each_value.with_object({}) do |rule, tags|
+        rule.dlist_tags.each { |tag| (tags[tag] ||= []).push(rule.keyword) }
+      end
+    end
+  end
+end
+
+module Eliza
+  # The core ELIZA algorithm [1966 CACM paper, pages 37-42].
+  class Engine
+    def initialize(script)
+      @script = script
+      @limit = 1 # "a certain counting mechanism" -- cycles 1..4 per response
+    end
+
+    def greeting
+      @script.greeting
+    end
+
+    def response(input)
+      words = Eliza.split_user_input(input)
+      @limit = @limit % 4 + 1
+
+      keystack = scan(words)
+
+      # No keywords: recall a memory, but only when LIMIT is 4 [page 41 (f)]
+      if keystack.empty? && @limit == 4 && @script.memory_rule&.memory?
+        return @script.memory_rule.recall
+      end
+
+      transform(keystack, words) || none_response(words)
+    end
+
+    private
+
+    # Scan for keywords, building the keystack and applying word
+    # substitutions in place [page 39 (a), (d)]. Only the first clause
+    # containing a keyword is kept [page 37 (c)].
+    def scan(words)
+      keystack = []
+      top_rank = 0
+      index = 0
+      while index < words.size
+        word = words[index]
+        if DELIMITERS.include?(word)
+          if keystack.empty?
+            words.shift(index + 1) # no keyword yet: discard through delimiter
+            index = 0
+          else
+            words.pop(words.size - index) # keyword found: discard the rest
+            break
+          end
+          next
+        end
+        if (rule = @script.rules[word])
+          if rule.transformation?
+            if rule.precedence > top_rank
+              keystack.unshift(word)
+              top_rank = rule.precedence
+            else
+              keystack.push(word)
+            end
+          end
+          words[index] = rule.substitution if rule.substitution
+        end
+        index += 1
+      end
+      keystack
+    end
+
+    # Apply the transformation for the top keyword [page 39 (d)].
+    # Returns the reply, or nil when the NONE rule should speak instead.
+    def transform(keystack, words)
+      while (keyword = keystack.shift)
+        rule = @script.rules[keyword]
+        return NOMATCH_MESSAGES[@limit - 1] unless rule # broken reference
+
+        @script.memory_rule&.create(keyword, words, @script.tags)
+
+        action, target = rule.apply(words, @script.tags)
+        case action
+        when :complete
+          return words.join(" ")
+        when :inapplicable # no decomposition matched: script error
+          return NOMATCH_MESSAGES[@limit - 1]
+        when :link
+          keystack.unshift(target)
+        when :newkey
+          next # try the next keyword in the keystack
+        end
+      end
+      nil # no keywords, or NEWKEY exhausted the keystack
+    end
+
+    # "the special reserved keyword NONE" never fails to reply [page 41 (d)]
+    def none_response(words)
+      @script.none_rule.apply(words, @script.tags)
+      words.join(" ")
+    end
+  end
+end
+
+module Eliza
+  # The conversation printed in the 1966 CACM paper (pages 36-37).
+  # A faithful implementation running the appendix script reproduces the
+  # capitalized responses exactly.
+  CACM_1966_CONVERSATION = [
+    ["Men are all alike.",
+     "IN WHAT WAY"],
+    ["They're always bugging us about something or other.",
+     "CAN YOU THINK OF A SPECIFIC EXAMPLE"],
+    ["Well, my boyfriend made me come here.",
+     "YOUR BOYFRIEND MADE YOU COME HERE"],
+    ["He says I'm depressed much of the time.",
+     "I AM SORRY TO HEAR YOU ARE DEPRESSED"],
+    ["It's true. I am unhappy.",
+     "DO YOU THINK COMING HERE WILL HELP YOU NOT TO BE UNHAPPY"],
+    ["I need some help, that much seems certain.",
+     "WHAT WOULD IT MEAN TO YOU IF YOU GOT SOME HELP"],
+    ["Perhaps I could learn to get along with my mother.",
+     "TELL ME MORE ABOUT YOUR FAMILY"],
+    ["My mother takes care of me.",
+     "WHO ELSE IN YOUR FAMILY TAKES CARE OF YOU"],
+    ["My father.",
+     "YOUR FATHER"],
+    ["You are like my father in some ways.",
+     "WHAT RESEMBLANCE DO YOU SEE"],
+    ["You are not very aggressive but I think you don't want me to notice that.",
+     "WHAT MAKES YOU THINK I AM NOT VERY AGGRESSIVE"],
+    ["You don't argue with me.",
+     "WHY DO YOU THINK I DON'T ARGUE WITH YOU"],
+    ["You are afraid of me.",
+     "DOES IT PLEASE YOU TO BELIEVE I AM AFRAID OF YOU"],
+    ["My father is afraid of everybody.",
+     "WHAT ELSE COMES TO MIND WHEN YOU THINK OF YOUR FATHER"],
+    ["Bullies.",
+     "DOES THAT HAVE ANYTHING TO DO WITH THE FACT THAT YOUR BOYFRIEND MADE YOU COME HERE"]
+  ].freeze
+end
+
+module Eliza
+  # Anthony Hay's verbatim transcription of the DOCTOR script printed in
+  # the appendix of Weizenbaum's January 1966 CACM paper.
+  # https://github.com/anthay/ELIZA (CC0 1.0)
+  DOCTOR_SCRIPT = <<~'CACM_SCRIPT'
+    ;
+    ; APPENDIX. An Eliza Script
+    ;
+    ; Transcribed from Joseph Weizenbaum's article on page 36 of the January
+    ; 1966 edition of Communications of the ACM titled 'ELIZA - A Computer
+    ; Program For the Study of Natural Language Communication Between Man And
+    ; Machine'.
+    ;
+    ; "Keywords and their associated transformation rules constitute the
+    ; SCRIPT for a particular class of conversation. An important property of
+    ; ELIZA is that a script is data; i.e., it is not part of the program
+    ; itself." -- From the above mentioned article.
+    ;
+    ; Transcribed by Anthony Hay, December 2020
+    ;
+    ;
+    ; Notes
+    ;
+    ; This is a verbatim transcription of the ELIZA script in the above
+    ; mentioned CACM article, with the following caveats:
+    ; a) Whitespace has been added to help reveal the structure of the
+    ;    script.
+    ; b) In the appendix six lines were printed twice adjacent to each other
+    ;    (with exactly 34 lines between each duplicate), making the structure
+    ;    nonsensical. These duplicates have been commented out of this
+    ;    transcription.
+    ; c) There were no comments in the script in the CACM article.
+    ;
+    ;
+    ; Weizenbaum says "An ELIZA script consists mainly of a set of list
+    ; structures..." and that ELIZA was written in MAD-Slip. He didn't publish
+    ; it at the time, but a version of the source code has now been found in
+    ; the Weizenbaum archives at MIT. See elizagen.org.
+    ;
+
+
+    (HOW DO YOU DO.  PLEASE TELL ME YOUR PROBLEM)
+
+    START
+
+    (SORRY
+        ((0)
+            (PLEASE DON'T APOLIGIZE)
+            (APOLOGIES ARE NOT NECESSARY)
+            (WHAT FEELINGS DO YOU HAVE WHEN YOU APOLOGIZE)
+            (I'VE TOLD YOU THAT APOLOGIES ARE NOT REQUIRED)))
+
+    (DONT = DON'T)
+    (CANT = CAN'T)
+    (WONT = WON'T)
+
+    (REMEMBER 5
+        ((0 YOU REMEMBER 0)
+             (DO YOU OFTEN THINK OF 4)
+             (DOES THINKING OF 4 BRING ANYTHING ELSE TO MIND)
+             (WHAT ELSE DO YOU REMEMBER)
+             (WHY DO YOU REMEMBER 4 JUST NOW)
+             (WHAT IN THE PRESENT SITUATION REMINDS YOU OF 4)
+             (WHAT IS THE CONNECTION BETWEEN ME AND 4))
+        ((0 DO I REMEMBER 0)
+             (DID YOU THINK I WOULD FORGET 5)
+             (WHY DO YOU THINK I SHOULD RECALL 5 NOW)
+             (WHAT ABOUT 5)
+             (=WHAT)
+             (YOU MENTIONED 5))
+        ((0)
+             (NEWKEY)))
+
+    (IF 3
+        ((0 IF 0)
+            (DO YOU THINK ITS LIKELY THAT 3)
+            (DO YOU WISH THAT 3)
+            (WHAT DO YOU THINK ABOUT 3)
+            (REALLY, 2 3)))
+    ; duplicate line removed: (WHAT DO YOU THINK ABOUT 3) (REALLY, 2 3)))
+
+    (DREAMT 4
+        ((0 YOU DREAMT 0)
+            (REALLY, 4)
+            (HAVE YOU EVER FANTASIED 4 WHILE YOU WERE AWAKE)
+            (HAVE YOU DREAMT 4 BEFORE)
+            (=DREAM)
+            (NEWKEY)))
+
+    (DREAMED = DREAMT 4 (=DREAMT))
+
+    (DREAM 3
+        ((0)
+            (WHAT DOES THAT DREAM SUGGEST TO YOU)
+            (DO YOU DREAM OFTEN)
+            (WHAT PERSONS APPEAR IN YOUR DREAMS)
+            (DON'T YOU BELIEVE THAT DREAM HAS SOMETHING TO DO WITH YOUR PROBLEM)
+            (NEWKEY)))
+
+    (DREAMS = DREAM 3 (=DREAM))
+
+    (HOW (=WHAT))
+    (WHEN (=WHAT))
+    (ALIKE 10 (=DIT))
+    (SAME 10 (=DIT))
+    (CERTAINLY (=YES))
+
+    (FEEL DLIST(/BELIEF))
+    (THINK DLIST(/BELIEF))
+    (BELIEVE DLIST(/BELIEF))
+    (WISH DLIST(/BELIEF))
+
+    (MEMORY MY
+        (0 YOUR 0 = LETS DISCUSS FURTHER WHY YOUR 3)
+        (0 YOUR 0 = EARLIER YOU SAID YOUR 3)
+        (0 YOUR 0 = BUT YOUR 3)
+        (0 YOUR 0 = DOES THAT HAVE ANYTHING TO DO WITH THE FACT THAT YOUR 3))
+
+    (NONE
+        ((0)
+            (I AM NOT SURE I UNDERSTAND YOU FULLY)
+            (PLEASE GO ON)
+            (WHAT DOES THAT SUGGEST TO YOU)
+            (DO YOU FEEL STRONGLY ABOUT DISCUSSING SUCH THINGS)))
+
+    (PERHAPS
+        ((0)
+            (YOU DON'T SEEM QUITE CERTAIN)
+            (WHY THE UNCERTAIN TONE)
+            (CAN'T YOU BE MORE POSITIVE)
+            (YOU AREN'T SURE)
+            (DON'T YOU KNOW)))
+
+    (MAYBE (=PERHAPS))
+
+    (NAME 15
+        ((0)
+            (I AM NOT INTERESTED IN NAMES)
+            (I'VE TOLD YOU BEFORE, I DON'T CARE ABOUT NAMES - PLEASE CONTINUE)))
+    ; duplicate line removed: PLEASE CONTINUE)) )
+
+    (DEUTSCH (=XFREMD))
+    (FRANCAIS (=XFREMD))
+    (ITALIANO (=XFREMD))
+    (ESPANOL (=XFREMD))
+
+    (XFREMD
+        ((0)
+            (I AM SORRY, I SPEAK ONLY ENGLISH)))
+
+    (HELLO
+        ((0)
+            (HOW DO YOU DO.  PLEASE STATE YOUR PROBLEM)))
+
+    (COMPUTER 50
+        ((0)
+            (DO COMPUTERS WORRY YOU)
+            (WHY DO YOU MENTION COMPUTERS)
+            (WHAT DO YOU THINK MACHINES HAVE TO DO WITH YOUR PROBLEM)
+            (DON'T YOU THINK COMPUTERS CAN HELP PEOPLE)
+            (WHAT ABOUT MACHINES WORRIES YOU)
+            (WHAT DO YOU THINK ABOUT MACHINES)))
+
+    (MACHINE 50 (=COMPUTER))
+    (MACHINES 50 (=COMPUTER))
+    (COMPUTERS 50 (=COMPUTER))
+
+    (AM = ARE
+        ((0 ARE YOU 0)
+            (DO YOU BELIEVE YOU ARE 4)
+            (WOULD YOU WANT TO BE 4)
+            (YOU WISH I WOULD TELL YOU YOU ARE 4)
+            (WHAT WOULD IT MEAN IF YOU WERE 4)
+            (=WHAT))
+        ((0)
+            (WHY DO YOU SAY 'AM')
+            (I DON'T UNDERSTAND THAT)))
+
+    (ARE
+        ((0 ARE I 0)
+            (WHY ARE YOU INTERESTED IN WHETHER I AM 4 OR NOT)
+            (WOULD YOU PREFER IF I WEREN'T 4)
+            (PERHAPS I AM 4 IN YOUR FANTASIES)
+            (DO YOU SOMETIMES THINK I AM 4)
+            (=WHAT))
+        ((0 ARE 0)
+            (DID YOU THINK THEY MIGHT NOT BE 3)
+            (WOULD YOU LIKE IT IF THEY WERE NOT 3)
+            (WHAT IF THEY WERE NOT 3)
+            (POSSIBLY THEY ARE 3)))
+
+    (YOUR = MY
+        ((0 MY 0)
+            (WHY ARE YOU CONCERNED OVER MY 3)
+            (WHAT ABOUT YOUR OWN 3)
+            (ARE YOU WORRIED ABOUT SOMEONE ELSES 3)
+            (REALLY, MY 3)))
+
+    (WAS 2
+        ((0 WAS YOU 0)
+            (WHAT IF YOU WERE 4)
+            (DO YOU THINK YOU WERE 4)
+            (WERE YOU 4)
+            (WHAT WOULD IT MEAN IF YOU WERE 4)
+            (WHAT DOES ' 4 ' SUGGEST TO YOU)
+            (=WHAT))
+        ((0 YOU WAS 0)
+            (WERE YOU REALLY)
+            (WHY DO YOU TELL ME YOU WERE 4 NOW)
+    ; duplicate line removed: (WERE YOU REALLY) (WHY DO YOU TELL ME YOU WERE 4 NOW)
+            (PERHAPS I ALREADY KNEW YOU WERE 4))
+        ((0 WAS I 0)
+            (WOULD YOU LIKE TO BELIEVE I WAS 4)
+            (WHAT SUGGESTS THAT I WAS 4)
+            (WHAT DO YOU THINK)
+            (PERHAPS I WAS 4)
+            (WHAT IF I HAD BEEN 4))
+        ((0)
+            (NEWKEY)))
+
+    (WERE = WAS (=WAS))
+    (ME = YOU)
+
+    (YOU'RE = I'M
+        ((0 I'M 0)
+            (PRE (I ARE 3) (=YOU))))
+
+    (I'M = YOU'RE
+        ((0 YOU'RE 0)
+            (PRE (YOU ARE 3) (=I))))
+
+    (MYSELF = YOURSELF)
+    (YOURSELF = MYSELF)
+
+    (MOTHER DLIST(/NOUN FAMILY))
+    (MOM = MOTHER DLIST(/ FAMILY))
+    (DAD = FATHER DLIST(/ FAMILY))
+    (FATHER DLIST(/NOUN FAMILY))
+    (SISTER DLIST(/FAMILY))
+    (BROTHER DLIST(/FAMILY))
+    (WIFE DLIST(/FAMILY))
+    (CHILDREN DLIST(/FAMILY))
+
+    (I = YOU
+        ((0 YOU (* WANT NEED) 0)
+            (WHAT WOULD IT MEAN TO YOU IF YOU GOT 4)
+            (WHY DO YOU WANT 4)
+            (SUPPOSE YOU GOT 4 SOON)
+            (WHAT IF YOU NEVER GOT 4)
+            (WHAT WOULD GETTING 4 MEAN TO YOU)
+            (WHAT DOES WANTING 4 HAVE TO DO WITH THIS DISCUSSION))
+        ((0 YOU ARE 0 (*SAD UNHAPPY DEPRESSED SICK ) 0)
+            (I AM SORRY TO HEAR YOU ARE 5)
+            (DO YOU THINK COMING HERE WILL HELP YOU NOT TO BE 5)
+            (I'M SURE ITS NOT PLEASANT TO BE 5)
+            (CAN YOU EXPLAIN WHAT MADE YOU 5))
+        ((0 YOU ARE 0 (*HAPPY ELATED GLAD BETTER) 0)
+            (HOW HAVE I HELPED YOU TO BE 5)
+            (HAS YOUR TREATMENT MADE YOU 5)
+            (WHAT MAKES YOU 5 JUST NOW)
+            (CAN YOU EXPLAIN WHY YOU ARE SUDDENLY 5))
+        ((0 YOU WAS 0)
+            (=WAS))
+    ; duplicate line removed: ((0 YOU WAS 0) (=WAS))
+        ((0 YOU (/BELIEF) YOU 0)
+            (DO YOU REALLY THINK SO)
+            (BUT YOU ARE NOT SURE YOU 5)
+            (DO YOU REALLY DOUBT YOU 5))
+        ((0 YOU 0 (/BELIEF) 0 I 0)
+            (=YOU))
+        ((0 YOU ARE 0)
+            (IS IT BECAUSE YOU ARE 4 THAT YOU CAME TO ME)
+            (HOW LONG HAVE YOU BEEN 4)
+            (DO YOU BELIEVE IT NORMAL TO BE 4)
+            (DO YOU ENJOY BEING 4))
+        ((0 YOU (* CAN'T CANNOT) 0)
+            (HOW DO YOU KNOW YOU CAN'T 4)
+            (HAVE YOU TRIED)
+            (PERHAPS YOU COULD 4 NOW)
+            (DO YOU REALLY WANT TO BE ABLE TO 4))
+        ((0 YOU DON'T 0)
+            (DON'T YOU REALLY 4)
+            (WHY DON'T YOU 4)
+            (DO YOU WISH TO BE ABLE TO 4)
+            (DOES THAT TROUBLE YOU))
+        ((0 YOU FEEL 0)
+            (TELL ME MORE ABOUT SUCH FEELINGS)
+            (DO YOU OFTEN FEEL 4)
+            (DO YOU ENJOY FEELING 4)
+            (OF WHAT DOES FEELING 4 REMIND YOU))
+        ((0 YOU 0 I 0)
+            (PERHAPS IN YOUR FANTASY WE 3 EACH OTHER)
+            (DO YOU WISH TO 3 ME)
+            (YOU SEEM TO NEED TO 3 ME)
+            (DO YOU 3 ANYONE ELSE))
+        ((0)
+            (YOU SAY 1)
+            (CAN YOU ELABORATE ON THAT)
+            (DO YOU SAY 1 FOR SOME SPECIAL REASON)
+            (THAT'S QUITE INTERESTING)))
+
+    (YOU = I
+        ((0 I REMIND YOU OF 0)
+            (=DIT))
+        ((0 I ARE 0)
+            (WHAT MAKES YOU THINK I AM 4)
+            (DOES IT PLEASE YOU TO BELIEVE I AM 4)
+            (DO YOU SOMETIMES WISH YOU WERE 4)
+            (PERHAPS YOU WOULD LIKE TO BE 4))
+        ((0 I 0 YOU)
+            (WHY DO YOU THINK I 3 YOU)
+            (YOU LIKE TO THINK I 3 YOU - DON'T YOU)
+            (WHAT MAKES YOU THINK I 3 YOU)
+            (REALLY, I 3 YOU)
+            (DO YOU WISH TO BELIEVE I 3 YOU)
+    ; duplicate line removed: (REALLY, I 3 YOU) (DO YOU WISH TO BELIEVE I 3 YOU)
+            (SUPPOSE I DID 3 YOU - WHAT WOULD THAT MEAN)
+            (DOES SOMEONE ELSE BELIEVE I 3 YOU))
+        ((0 I 0)
+            (WE WERE DISCUSSING YOU - NOT ME)
+            (OH, I 3)
+            (YOU'RE NOT REALLY TALKING ABOUT ME - ARE YOU)
+            (WHAT ARE YOUR FEELINGS NOW)))
+
+    (YES
+        ((0)
+            (YOU SEEM QUITE POSITIVE)
+            (YOU ARE SURE)
+            (I SEE)
+            (I UNDERSTAND)))
+
+    (NO
+        ((0)
+            (ARE YOU SAYING 'NO' JUST TO BE NEGATIVE)
+            (YOU ARE BEING A BIT NEGATIVE)
+            (WHY NOT)
+            (WHY 'NO')))
+
+    (MY = YOUR 2
+        ((0 YOUR 0 (/FAMILY) 0)
+            (TELL ME MORE ABOUT YOUR FAMILY)
+            (WHO ELSE IN YOUR FAMILY 5)
+            (YOUR 4)
+            (WHAT ELSE COMES TO MIND WHEN YOU THINK OF YOUR 4))
+        ((0 YOUR 0)
+            (YOUR 3)
+            (WHY DO YOU SAY YOUR 3)
+            (DOES THAT SUGGEST ANYTHING ELSE WHICH BELONGS TO YOU)
+            (IS IT IMPORTANT TO YOU THAT 2 3)))
+
+    (CAN
+        ((0 CAN I 0)
+            (YOU BELIEVE I CAN 4 DON'T YOU)
+            (=WHAT)
+            (YOU WANT ME TO BE ABLE TO 4)
+            (PERHAPS YOU WOULD LIKE TO BE ABLE TO 4 YOURSELF))
+        ((0 CAN YOU 0)
+            (WHETHER OR NOT YOU CAN 4 DEPENDS ON YOU MORE THAN ON ME)
+            (DO YOU WANT TO BE ABLE TO 4)
+            (PERHAPS YOU DON'T WANT TO 4)
+            (=WHAT)))
+
+    (WHAT
+        ((0)
+            (WHY DO YOU ASK)
+            (DOES THAT QUESTION INTEREST YOU)
+            (WHAT IS IT YOU REALLY WANT TO KNOW)
+            (ARE SUCH QUESTIONS MUCH ON YOUR MIND)
+            (WHAT ANSWER WOULD PLEASE YOU MOST)
+            (WHAT DO YOU THINK)
+            (WHAT COMES TO YOUR MIND WHEN YOU ASK THAT)
+            (HAVE YOU ASKED SUCH QUESTIONS BEFORE)
+            (HAVE YOU ASKED ANYONE ELSE)))
+
+    (BECAUSE
+        ((0)
+            (IS THAT THE REAL REASON)
+            (DON'T ANY OTHER REASONS COME TO MIND)
+            (DOES THAT REASON SEEM TO EXPLAIN ANYTHING ELSE)
+            (WHAT OTHER REASONS MIGHT THERE BE)))
+
+    (WHY
+        ((0 WHY DON'T I 0)
+            (DO YOU BELIEVE I DON'T 5)
+            (PERHAPS I WILL 5 IN GOOD TIME)
+            (SHOULD YOU 5 YOURSELF)
+            (YOU WANT ME TO 5)
+            (=WHAT))
+    ; duplicate line removed: (=WHAT))
+        ((0 WHY CAN'T YOU 0)
+            (DO YOU THINK YOU SHOULD BE ABLE TO 5)
+            (DO YOU WANT TO BE ABLE TO 5)
+            (DO YOU BELIEVE THIS WILL HELP YOU TO 5)
+            (HAVE YOU ANY IDEA WHY YOU CAN'T 5)
+            (=WHAT))
+        (=WHAT))
+
+    (EVERYONE 2
+        ((0 (* EVERYONE EVERYBODY NOBODY NOONE) 0)
+            (REALLY, 2)
+            (SURELY NOT 2)
+            (CAN YOU THINK OF ANYONE IN PARTICULAR)
+            (WHO, FOR EXAMPLE)
+            (YOU ARE THINKING OF A VERY SPECIAL PERSON)
+            (WHO, MAY I ASK)
+            (SOMEONE SPECIAL PERHAPS)
+            (YOU HAVE A PARTICULAR PERSON IN MIND, DON'T YOU)
+            (WHO DO YOU THINK YOU'RE TALKING ABOUT)))
+
+    (EVERYBODY 2 (= EVERYONE))
+    (NOBODY 2 (= EVERYONE))
+    (NOONE 2 (= EVERYONE))
+
+    (ALWAYS 1
+        ((0)
+            (CAN YOU THINK OF A SPECIFIC EXAMPLE)
+            (WHEN)
+            (WHAT INCIDENT ARE YOU THINKING OF)
+            (REALLY, ALWAYS)))
+
+    (LIKE 10
+        ((0 (*AM IS ARE WAS) 0 LIKE 0)
+            (=DIT))
+        ((0)
+            (NEWKEY)))
+
+    (DIT
+        ((0)
+            (IN WHAT WAY)
+            (WHAT RESEMBLANCE DO YOU SEE)
+            (WHAT DOES THAT SIMILARITY SUGGEST TO YOU)
+            (WHAT OTHER CONNECTIONS DO YOU SEE)
+            (WHAT DO YOU SUPPOSE THAT RESEMBLANCE MEANS)
+            (WHAT IS THE CONNECTION, DO YOU SUPPOSE)
+            (COULD THERE REALLY BE SOME CONNECTION)
+            (HOW)))
+
+    ()
+
+    ; --- End of ELIZA script ---
+  CACM_SCRIPT
+end
+
+# --- END generated by bin/build_site.rb ---
+
+# ---------------------------------------------------------------------------
+# terminal session
+
+C_RESET  = "\e[0m"
+C_ELIZA  = "\e[1;95m"        # neon magenta -- ELIZA speaks in caps, as in 1966
+C_PROMPT = "\e[1;96m"        # neon cyan
+C_SYS    = "\e[38;5;121m"    # phosphor green -- system chatter
+C_DIM    = "\e[38;5;244m"
+
+def say(reply)
+  TERM.write("#{C_ELIZA}#{reply}#{C_RESET}\r\n")
+end
+
+def prompt
+  TERM.write("#{C_PROMPT}> #{C_RESET}")
+end
 
 JS.global.clearInterval(JS.global[:bootTicker])
-TERM.write("\r\n\r\n")
+TERM.write(" \e[1;92mONLINE#{C_RESET}\r\n\r\n")
 
+TERM.write(C_SYS)
 connect("Connecting to ground control...", "connected.")
 connect("Tracing code name V location...", "location established.")
-connect("Establishing neural connection...", "connected.")
-TERM.write("\r\n")
+connect("Establishing neural connection...", "synced.")
+TERM.write("#{C_RESET}\r\n")
 
 typewrite("I sense your presence and appreciate your patience.")
 typewrite("Welcome to a safe space in my neural cortex.")
 typewrite("Find me at https://github.com/codenamev or https://blog.codenamev.com")
 TERM.write("\r\n")
-typewrite("In my quest to explore the vast expanse of AI, I present to you")
-typewrite("one of the very first NLP programs: \"ELIZA\" (Joseph Weizenbaum, 1966)")
+typewrite("Tonight's program: \"ELIZA\" (Joseph Weizenbaum, M.I.T., 1966) --")
+typewrite("a faithful reconstruction of the original: the 1966 CACM algorithm,")
+typewrite("the original DOCTOR script, the SLIP HASH, the works.")
 typewrite("https://en.wikipedia.org/wiki/ELIZA")
 TERM.write("\r\n")
-typewrite("This session is the original Ruby program, compiled to WebAssembly,")
-typewrite("running entirely in your browser. Type 'bye' to end the session.")
-TERM.write("\r\n")
-typewrite("Now presenting, ELIZA...")
+typewrite("She is Ruby, compiled to WebAssembly, alive entirely in your browser.")
+typewrite("Type *cacm to replay the conversation from the 1966 paper.")
 TERM.write("\r\n")
 
 JS.global.endIntro
 
-eliza = Eliza.new(ELIZA_SOURCE)
+engine = Eliza::Engine.new(Eliza::Script.parse(Eliza::DOCTOR_SCRIPT))
 buffer = String.new
-ended = false
 
-TERM.write(">> Hello.\r\nPlease state your problem.\r\n>> ")
+say(engine.greeting)
+prompt
 
 TERM.onData do |data|
   data.to_s.each_char do |char|
     case char
     when "\r"
       TERM.write("\r\n")
-      if ended
-        eliza = Eliza.new(ELIZA_SOURCE)
-        ended = false
-        TERM.write(">> Hello again.\r\nPlease state your problem.\r\n>> ")
-      else
-        reply = eliza.process_input(buffer)
-        TERM.write(">> #{reply}\r\n")
-        if eliza.done?
-          ended = true
-          TERM.write("(press Enter to start a new session)\r\n")
-        else
-          TERM.write(">> ")
-        end
-      end
+      input = buffer.strip
       buffer = String.new
+      if input == "*cacm"
+        # replay the conversation from the 1966 CACM paper on a fresh engine
+        replay = Eliza::Engine.new(Eliza::Script.parse(Eliza::DOCTOR_SCRIPT))
+        Eliza::CACM_1966_CONVERSATION.each do |patient, _|
+          TERM.write("#{C_PROMPT}> #{C_RESET}#{C_DIM}#{patient}#{C_RESET}\r\n")
+          say(replay.response(patient))
+        end
+      elsif !input.empty?
+        say(engine.response(input))
+      end
+      prompt
     when "\u007F", "\b"
       unless buffer.empty?
         buffer = buffer[0...-1]
         TERM.write("\b \b")
       end
     when "\u0003" # Ctrl-C clears the current line
-      TERM.write("^C\r\n>> ")
+      TERM.write("^C\r\n")
       buffer = String.new
+      prompt
     else
-      if char.ord >= 32
+      # a 1966 punched card held 80 columns; be generous, but not infinite
+      if char.ord >= 32 && buffer.length < 320
         buffer = buffer + char
         TERM.write(char)
       end

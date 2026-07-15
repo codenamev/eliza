@@ -4,8 +4,25 @@ It is an exercise in learning Ruby and Git.  Cheers.
 100208 - Make that ruby and git and apache licenses.
 
 260715 - Eliza goes to the browser: docs/ holds a ruby.wasm + xterm.js build
-served by GitHub Pages at https://chat.codenamev.com. The single-file
-terminal version remains runnable locally with: ruby runno.rb
+served by GitHub Pages at https://chat.codenamev.com.
+
+260715 - Aligned with the original 1966 ELIZA. The engine now implements
+Weizenbaum's algorithm from the January 1966 CACM paper (keystack with
+precedence, comma/period/BUT clause delimiters, cycling reassembly rules,
+NEWKEY and =KEY links, PRE rules, DLIST tags, the MEMORY queue selected by
+the SLIP HASH function, the LIMIT counter and built-in no-match messages),
+and runs the verbatim DOCTOR script from the paper's appendix (Anthony
+Hay's transcription, https://github.com/anthay/ELIZA, CC0). It reproduces
+the paper's famous "Men are all alike" conversation exactly:
+
+  ruby bin/eliza_cli.rb --test   # verify all 15 exchanges
+  ruby bin/eliza_cli.rb          # then type *cacm to watch the replay
+
+lib/ is the single source of truth (script in lib/eliza/scripts/). The
+browser build embeds a copy of lib/ in docs/index.html; after changing
+lib/, regenerate it with: ruby bin/build_site.rb. The retired single-file
+runno.rb and the pre-alignment Hayden-style script (kept for history at
+lib/eliza/scripts/original.txt) are in git history.
 
   Copyright 2010 Dave King
 
